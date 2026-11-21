@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CivicPulse | Government of India — National Deepfake &amp; Fact-Verification Portal</title>
+  <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- TensorFlow.js + COCO-SSD for Real-Time Camera Person & Object Detection with Names -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <style>
+    :root {
+      --apple-bg: #F5F5F7;
+      --apple-card: #FFFFFF;
+      --apple-ink: #1D1D1F;
+      --apple-muted: #6E6E73;
+      --apple-blue: #0071E3;
+      --gov-navy: #0B1F3A;
+    }
+    body {
+      background-color: var(--apple-bg);
+      color: var(--apple-ink);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .tricolor-bar {
+      height: 4px;
+      background: linear-gradient(90deg, #FF9933 0%, #FF9933 33.3%, #FFFFFF 33.3%, #FFFFFF 66.6%, #138808 66.6%, #138808 100%);
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.86);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .apple-card {
+      background: var(--apple-card);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+      border-radius: 22px;
+    }
+    .drop-zone {
+      border: 2px dashed #D2D2D7;
+      background: #FAFAFC;
+      transition: all 0.2s ease;
+    }
+    .drop-zone.dragover {
+      border-color: #0071E3;
+      background: #F0F7FF;
+      transform: scale(1.005);
+    }
+    .seg-btn {
+      transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    .seg-btn.active {
+      background: #FFFFFF;
+      color: #1D1D1F;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Official Government of India Tricolor Accent -->
+  <div class="tricolor-bar"></div>
+
+  <!-- Official Government of India Top Utility Bar -->
+  <div class="bg-[#0B1F3A] text-white/95 text-xs py-2 px-4">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <span class="font-semibold tracking-wide">भारत सरकार | GOVERNMENT OF INDIA</span>
+        <span class="hidden md:inline text-white/40">|</span>
+        <span class="hidden md:inline text-white/80">Ministry of Electronics &amp; Information Technology (MeitY) • National Deepfake &amp; Public Information Trust Portal</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="tel:1930" class="px-2.5 py-0.5 rounded-full bg-rose-600/90 hover:bg-rose-500 text-white font-semibold">Cyber Helpline: 1930</a>
+        <a href="https://cybercrime.gov.in/" target="_blank" class="hidden sm:inline text-white/80 hover:text-white underline">cybercrime.gov.in</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Apple Frosted Glass Official Portal Header (API Docs Removed) -->
+  <header class="glass-nav sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <!-- Ashoka Chakra / National Trust Emblem SVG -->
+        <div class="w-11 h-11 rounded-2xl bg-[#0B1F3A] flex items-center justify-center shadow-sm border border-[#FF9933]/40">
+          <svg class="w-7 h-7" viewBox="0 0 36 36" fill="none">
+            <circle cx="18" cy="18" r="13" stroke="#FF9933" stroke-width="2"/>
+            <circle cx="18" cy="18" r="8" stroke="#FFFFFF" stroke-width="1.5" stroke-dasharray="2 2"/>
+            <circle cx="18" cy="18" r="3" fill="#138808"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-tight text-[#0B1F3A]">CivicPulse India</h1>
+            <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">सत्यमेव जयते</span>
+          </div>
+          <p class="text-xs text-[#6E6E73]">National Real-Time Fact-Verification, Deepfake Forensics &amp; Citizen Cyber Protection</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button type="button" id="btnOpenComplaintsList" class="text-xs font-medium px-3.5 py-1.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] border border-[#D2D2D7] transition">My Complaints</button>
+        <button type="button" id="btnHeaderReport" class="text-xs font-semibold px-4 py-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition">Report Deepfake / File Complaint</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <main class="max-w-7xl w-full mx-auto px-6 py-7 flex-1 space-y-6">
+
+    <!-- Clean 5-Section Apple Segmented Navigation (Governance & 100-Feature Matrix Removed) -->
+    <nav class="bg-[#E8E8ED] p-1.5 rounded-2xl flex flex-wrap gap-1">
+      <button type="button" data-tab="fact" class="seg-btn active flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm text-[#6E6E73]">Fact-Check &amp; RAG</button>
+      <button type="button" data-tab="visual" class="seg-btn flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm text-[#6E6E73]">Visual &amp; Video Forensics</button>
+      <button type="button" data-tab="audio" class="seg-btn flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm text-[#6E6E73]">Audio Voice-Clone</button>
+      <button type="button" data-tab="feed" class="seg-btn flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm text-[#6E6E73]">Live Civic Pulse</button>
+      <button type="button" data-tab="live" class="seg-btn flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm text-[#6E6E73]">Live Camera Audit</button>
+    </nav>
+
+    <!-- ================================================================== -->
+    <!-- SECTION 1: FACT-CHECK & RAG -->
+    <!-- ================================================================== -->
+    <section id="tab-fact" class="tab-panel space-y-6">
+      <div class="apple-card p-7">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-2xl font-semibold tracking-tight text-[#0B1F3A]">Real-Time Claim Verification &amp; Origin Tracer</h2>
+            <p class="text-sm text-[#6E6E73] mt-1">Verify public claims, viral forwards, and policy news across Google Fact Check, Parallel AI, Tavily, NewsData, Wikipedia &amp; Walter AI.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <select id="claimCategory" class="text-xs px-3 py-1.5 rounded-full border border-[#D2D2D7] bg-white font-medium text-[#1D1D1F]">
+              <option value="General">Category: General</option>
+              <option value="Government Policy India">Government Policy</option>
+              <option value="Election Civic">Election &amp; Civic</option>
+              <option value="UPI Banking Scam">Finance / UPI Scam</option>
+              <option value="Public Health">Public Health</option>
+            </select>
+            <button type="button" id="factSample1" class="text-xs px-3 py-1.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] font-medium">Sample: RBI Note</button>
+            <button type="button" id="factSample2" class="text-xs px-3 py-1.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] font-medium">Sample: Digital Arrest</button>
+          </div>
+        </div>
+
+        <textarea id="claimInput" rows="3" placeholder="Paste any viral WhatsApp forward, policy announcement, quote, or news headline to verify in real time..." class="w-full rounded-2xl border border-[#D2D2D7] bg-[#FAFAFC] focus:bg-white focus:border-[#0071E3] focus:ring-4 focus:ring-blue-500/10 outline-none p-4 text-sm transition mb-4"></textarea>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" id="btnRunFactCheck" class="px-6 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-sm font-medium shadow-sm transition">Verify Claim Live</button>
+          <button type="button" id="btnCopyFact" class="hidden px-4 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Copy Verdict</button>
+          <button type="button" id="btnDownloadFact" class="hidden px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Download JSON</button>
+          <button type="button" id="btnPrintFact" class="hidden px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Printable Report</button>
+        </div>
+      </div>
+
+      <div id="factResult" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6"></div>
+
+      <div class="apple-card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-semibold">Recent Fact-Check History</h3>
+            <p class="text-xs text-[#6E6E73]">Saved locally with date, time, view, download, and delete options.</p>
+          </div>
+          <button type="button" data-clear-section="fact" class="btn-clear-history text-xs text-rose-600 hover:underline font-medium">Clear Section</button>
+        </div>
+        <div id="history-fact" class="space-y-2.5 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SECTION 2: VISUAL & VIDEO FORENSICS -->
+    <!-- ================================================================== -->
+    <section id="tab-visual" class="tab-panel hidden space-y-6">
+      <div class="apple-card p-7">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+          <div>
+            <h2 class="text-2xl font-semibold tracking-tight text-[#0B1F3A]">Multimodal Visual Deepfake, Safety &amp; C2PA Audit</h2>
+            <p class="text-sm text-[#6E6E73] mt-1">Runs 2D-FFT frequency analysis, ELA inpainting heatmaps, PRNU sensor checks, sensitive/harmful content screening, Reality Defender &amp; Walter AI.</p>
+          </div>
+          <button type="button" id="btnVisualSample" class="text-xs px-4 py-2 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#0071E3] font-semibold transition">Run 1-Click Demo Image</button>
+        </div>
+
+        <div id="visualDropZone" class="drop-zone rounded-2xl p-8 text-center cursor-pointer mb-4">
+          <input id="visualFile" type="file" accept="image/*,video/mp4,video/webm,video/quicktime,.pdf,.docx" class="hidden" />
+          <div id="visualEmptyState">
+            <div class="w-12 h-12 rounded-2xl bg-blue-50 text-[#0071E3] flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            </div>
+            <p class="text-sm font-semibold text-[#1D1D1F]">Drop an image or MP4 video here, or <span class="text-[#0071E3] underline">browse files</span></p>
+            <p class="text-xs text-[#6E6E73] mt-1">Supports JPG, PNG, WebP, MP4 • Automatic harmful/morphed content protection enabled</p>
+          </div>
+          <div id="visualPreviewBox" class="hidden flex flex-col sm:flex-row items-center justify-center gap-5 text-left">
+            <img id="visualPreviewImg" class="w-36 h-24 object-cover rounded-xl border border-black/10 shadow-sm hidden" alt="Preview" />
+            <div class="space-y-1">
+              <div id="visualFileName" class="text-sm font-semibold text-[#1D1D1F]"></div>
+              <div id="visualFileMeta" class="text-xs text-[#6E6E73]"></div>
+              <button type="button" id="btnClearVisualFile" class="text-xs text-rose-600 hover:underline font-medium">Remove file</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" id="btnRunVisual" class="px-6 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-sm font-medium shadow-sm transition">Run Forensic Audit</button>
+          <button type="button" id="btnDownloadVisual" class="hidden px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Download JSON</button>
+          <button type="button" id="btnPrintVisual" class="hidden px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Printable Report</button>
+        </div>
+      </div>
+
+      <div id="visualResult" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6"></div>
+
+      <div class="apple-card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-semibold">Recent Visual &amp; Video Audit History</h3>
+            <p class="text-xs text-[#6E6E73]">Previously audited media files with SHA-256 certificates and one-click downloads.</p>
+          </div>
+          <button type="button" data-clear-section="visual" class="btn-clear-history text-xs text-rose-600 hover:underline font-medium">Clear Section</button>
+        </div>
+        <div id="history-visual" class="space-y-2.5 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SECTION 3: AUDIO VOICE-CLONE AUDITING -->
+    <!-- ================================================================== -->
+    <section id="tab-audio" class="tab-panel hidden space-y-6">
+      <div class="apple-card p-7">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+          <div>
+            <h2 class="text-2xl font-semibold tracking-tight text-[#0B1F3A]">Acoustic &amp; Voice-Clone Forensics</h2>
+            <p class="text-sm text-[#6E6E73] mt-1">Inspects voice notes &amp; scam calls with live waveform rendering, 95% spectral roll-off, breath cadence, Walter AI Voice &amp; Resemble AI.</p>
+          </div>
+          <button type="button" id="btnAudioSample" class="text-xs px-4 py-2 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#0071E3] font-semibold transition">Run 1-Click Demo Voice</button>
+        </div>
+
+        <div id="audioDropZone" class="drop-zone rounded-2xl p-8 text-center cursor-pointer mb-4">
+          <input id="audioFile" type="file" accept="audio/*,.wav,.mp3,.m4a,.ogg" class="hidden" />
+          <div id="audioEmptyState">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+            </div>
+            <p class="text-sm font-semibold text-[#1D1D1F]">Drop a voice note or call recording here, or <span class="text-[#0071E3] underline">browse audio</span></p>
+            <p class="text-xs text-[#6E6E73] mt-1">Supports WAV (local DSP + cloud) and MP3/M4A (cloud ensemble)</p>
+          </div>
+          <div id="audioPreviewBox" class="hidden flex flex-col items-center gap-3">
+            <div id="audioFileName" class="text-sm font-semibold text-[#1D1D1F]"></div>
+            <canvas id="audioWaveCanvas" width="520" height="72" class="w-full max-w-lg rounded-xl bg-white border border-[#E5E5EA]"></canvas>
+            <audio id="audioPreviewPlayer" controls class="w-full max-w-md"></audio>
+            <button type="button" id="btnClearAudioFile" class="text-xs text-rose-600 hover:underline font-medium">Remove audio</button>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" id="btnRunAudio" class="px-6 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-sm font-medium shadow-sm transition">Audit Voice Track</button>
+          <button type="button" id="btnDownloadAudio" class="hidden px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Download JSON</button>
+          <button type="button" id="btnPrintAudio" class="hidden px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Printable Report</button>
+        </div>
+      </div>
+
+      <div id="audioResult" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6"></div>
+
+      <div class="apple-card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-semibold">Recent Voice-Clone Audit History</h3>
+            <p class="text-xs text-[#6E6E73]">Persisted audio verification records with download and delete actions.</p>
+          </div>
+          <button type="button" data-clear-section="audio" class="btn-clear-history text-xs text-rose-600 hover:underline font-medium">Clear Section</button>
+        </div>
+        <div id="history-audio" class="space-y-2.5 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SECTION 4: LIVE CIVIC PULSE FEED -->
+    <!-- ================================================================== -->
+    <section id="tab-feed" class="tab-panel hidden space-y-6">
+      <div class="apple-card p-7">
+        <h2 class="text-2xl font-semibold tracking-tight text-[#0B1F3A] mb-1">Live Civic Pulse Intelligence Feed</h2>
+        <p class="text-sm text-[#6E6E73] mb-4">Real-time ClaimReviews, web intelligence, breaking news, and Wikipedia context on active Indian public topics.</p>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <button type="button" data-topic="India election AI deepfake" class="topic-chip text-xs px-3.5 py-1.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] font-medium">Deepfake Elections</button>
+          <button type="button" data-topic="Digital arrest scam India 1930" class="topic-chip text-xs px-3.5 py-1.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] font-medium">Digital Arrest Scams</button>
+          <button type="button" data-topic="PIB Fact Check Government of India" class="topic-chip text-xs px-3.5 py-1.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] font-medium">PIB Fact Check</button>
+          <button type="button" data-topic="UPI fraud RBI advisory India" class="topic-chip text-xs px-3.5 py-1.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] font-medium">RBI / UPI Alerts</button>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <input id="feedTopic" type="text" value="India election AI deepfake" class="flex-1 min-w-[240px] rounded-full border border-[#D2D2D7] bg-[#FAFAFC] focus:bg-white focus:border-[#0071E3] outline-none px-5 py-2.5 text-sm" />
+          <button type="button" id="btnRunFeed" class="px-6 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-sm font-medium shadow-sm transition">Fetch &amp; Save Live Feed</button>
+          <button type="button" id="btnDownloadFeed" class="hidden px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Download JSON</button>
+        </div>
+      </div>
+
+      <div id="feedResults" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+
+      <div class="apple-card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-semibold">Recent Civic Pulse Searches</h3>
+            <p class="text-xs text-[#6E6E73]">Saved topic briefings with instant reload, download, and delete options.</p>
+          </div>
+          <button type="button" data-clear-section="feed" class="btn-clear-history text-xs text-rose-600 hover:underline font-medium">Clear Section</button>
+        </div>
+        <div id="history-feed" class="space-y-2.5 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SECTION 5: LIVE CAMERA AUDIT (REAL-TIME PERSON & OBJECT DETECTION) -->
+    <!-- ================================================================== -->
+    <section id="tab-live" class="tab-panel hidden space-y-6">
+      <div class="apple-card p-7">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-2xl font-semibold tracking-tight text-[#0B1F3A]">Live Camera Audit — Real-Time Person &amp; Object Detection</h2>
+            <p class="text-sm text-[#6E6E73] mt-1">Identifies persons and real-world objects by name with live bounding boxes, flags screen-recapture attacks (phone/laptop in front of webcam), and audits PRNU &amp; safety signals in real time.</p>
+          </div>
+          <span id="aiModelStatus" class="text-xs px-3 py-1.5 rounded-full bg-[#F5F5F7] text-[#6E6E73] font-medium">Vision AI: Standby</span>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mb-5">
+          <button type="button" id="btnStartCam" class="px-5 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-sm font-medium transition">Start Camera Audit</button>
+          <button type="button" id="btnStopCam" class="px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] text-sm font-medium transition">Stop Camera</button>
+          <button type="button" id="btnSaveLiveSnap" class="hidden px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition">Save Snapshot to History</button>
+          <button type="button" id="btnDownloadLive" class="hidden px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Download Telemetry (JSON)</button>
+        </div>
+
+        <!-- Live Camera Safety / Screen-Injection Alert Banner -->
+        <div id="liveSafetyBanner" class="hidden mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 flex flex-wrap items-center justify-between gap-3">
+          <div class="text-xs text-rose-800" id="liveSafetyText"></div>
+          <button type="button" id="btnLiveComplaint" class="px-4 py-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold">File Official Complaint</button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Video + Live Detection Bounding-Box Overlay -->
+          <div class="lg:col-span-7 space-y-3">
+            <div class="relative rounded-2xl overflow-hidden bg-black aspect-video border border-black/10">
+              <video id="liveVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+              <canvas id="liveOverlayCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+            </div>
+            <div class="p-4 rounded-2xl bg-[#FAFAFC] border border-[#E5E5EA]">
+              <div class="text-xs font-semibold text-[#6E6E73] uppercase mb-2">Live Detected Persons &amp; Objects (Real-Time Names)</div>
+              <div id="liveObjectsList" class="flex flex-wrap gap-2 text-xs text-[#6E6E73]">Start camera to detect persons &amp; objects in real time...</div>
+            </div>
+          </div>
+
+          <!-- Real-Time Forensic Telemetry -->
+          <div id="liveMetrics" class="lg:col-span-5 rounded-2xl bg-[#FAFAFC] border border-[#E5E5EA] p-6 text-sm space-y-3">
+            <p class="text-[#6E6E73]">Click <b>Start Camera Audit</b> to launch real-time person/object recognition and WebSocket forensic analysis. (Use Chrome or Edge for camera access.)</p>
+          </div>
+        </div>
+        <canvas id="liveCanvas" width="320" height="240" class="hidden"></canvas>
+      </div>
+
+      <div class="apple-card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-base font-semibold">Saved Live Camera Snapshots</h3>
+            <p class="text-xs text-[#6E6E73]">Timestamped snapshots including detected person/object names and forensic telemetry.</p>
+          </div>
+          <button type="button" data-clear-section="live" class="btn-clear-history text-xs text-rose-600 hover:underline font-medium">Clear Section</button>
+        </div>
+        <div id="history-live" class="space-y-2.5 text-sm"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================================================================== -->
+  <!-- OFFICIAL CYBER COMPLAINT MODAL FORM (RETURNS TO SAME SECTION) -->
+  <!-- ================================================================== -->
+  <div id="complaintModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-7 shadow-2xl border border-black/10 my-8">
+      <div class="flex items-start justify-between gap-4 border-b border-[#E5E5EA] pb-4 mb-5">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-rose-600">Government of India • Citizen Cyber Grievance</span>
+          <h3 class="text-xl font-bold text-[#0B1F3A] mt-0.5">File Deepfake / Harmful Content Complaint</h3>
+          <p class="text-xs text-[#6E6E73] mt-0.5">Submit details for immediate logging &amp; reference receipt. After submission, you will return directly to your current section.</p>
+        </div>
+        <button type="button" id="btnCloseComplaintModal" class="w-8 h-8 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+
+      <form id="complaintForm" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-[#1D1D1F] mb-1">Full Name *</label>
+            <input id="cmpName" required type="text" placeholder="Enter your full name" class="w-full rounded-xl border border-[#D2D2D7] px-3.5 py-2.5 text-sm outline-none focus:border-[#0071E3]" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#1D1D1F] mb-1">Mobile Number *</label>
+            <input id="cmpMobile" required type="tel" placeholder="+91 9876543210" class="w-full rounded-xl border border-[#D2D2D7] px-3.5 py-2.5 text-sm outline-none focus:border-[#0071E3]" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#1D1D1F] mb-1">Email Address *</label>
+            <input id="cmpEmail" required type="email" placeholder="citizen@example.com" class="w-full rounded-xl border border-[#D2D2D7] px-3.5 py-2.5 text-sm outline-none focus:border-[#0071E3]" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-[#1D1D1F] mb-1">Age *</label>
+              <input id="cmpAge" required type="number" min="13" max="120" placeholder="24" class="w-full rounded-xl border border-[#D2D2D7] px-3.5 py-2.5 text-sm outline-none focus:border-[#0071E3]" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#1D1D1F] mb-1">Place (City, State) *</label>
+              <input id="cmpPlace" required type="text" placeholder="Hyderabad, TS" class="w-full rounded-xl border border-[#D2D2D7] px-3.5 py-2.5 text-sm outline-none focus:border-[#0071E3]" />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#1D1D1F] mb-1">Incident Category *</label>
+          <select id="cmpCategory" required class="w-full rounded-xl border border-[#D2D2D7] px-3.5 py-2.5 text-sm bg-white outline-none focus:border-[#0071E3]">
+            <option value="Deepfake Image / Video Manipulation">Deepfake Image / Video Manipulation</option>
+            <option value="Non-Consensual / Explicit / Morphed Content">Non-Consensual / Explicit / Nudity / Morphed Content</option>
+            <option value="AI Voice-Clone / Digital Arrest Scam">AI Voice-Clone / Digital Arrest Scam</option>
+            <option value="Viral Misinformation / Election Disinformation">Viral Misinformation / Election Disinformation</option>
+            <option value="Harmful / Impersonation Live Stream">Harmful / Impersonation Live Stream</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#1D1D1F] mb-1">Attached Forensic Evidence (Auto-Filled)</label>
+          <input id="cmpEvidence" type="text" readonly class="w-full rounded-xl border border-[#E5E5EA] bg-[#FAFAFC] px-3.5 py-2 text-xs font-mono text-[#6E6E73]" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#1D1D1F] mb-1">Incident Description *</label>
+          <textarea id="cmpDesc" required rows="3" placeholder="Describe where you encountered this deepfake or harmful content (platform, link, account, or phone number)..." class="w-full rounded-xl border border-[#D2D2D7] px-3.5 py-2.5 text-sm outline-none focus:border-[#0071E3]"></textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <a href="https://cybercrime.gov.in/" target="_blank" class="text-xs text-[#0071E3] hover:underline font-medium">Also escalate on cybercrime.gov.in ↗</a>
+          <div class="flex gap-2.5">
+            <button type="button" id="btnCancelComplaint" class="px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Cancel</button>
+            <button type="submit" id="btnSubmitComplaint" class="px-6 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold shadow-sm">Submit Complaint &amp; Return</button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Post-Submit Receipt View -->
+      <div id="complaintSuccessBox" class="hidden space-y-4 py-2">
+        <div class="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
+          <div class="text-xs font-bold uppercase text-emerald-700">Complaint Registered Successfully</div>
+          <div id="cmpRefDisplay" class="text-2xl font-bold font-mono text-[#0B1F3A]"></div>
+          <p class="text-xs text-emerald-800">Your grievance has been logged in real time. Save your receipt below or escalate directly to National Cyber Helpline <b>1930</b>.</p>
+        </div>
+        <div class="flex flex-wrap justify-end gap-2.5">
+          <button type="button" id="btnDownloadReceipt" class="px-5 py-2.5 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-sm font-medium">Download Receipt (JSON)</button>
+          <button type="button" id="btnReturnSection" class="px-6 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white text-sm font-semibold">Return to Current Section</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filed Complaints Drawer Modal -->
+  <div id="complaintsListModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-7 shadow-2xl border border-black/10 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-[#E5E5EA] pb-4 mb-4">
+        <div>
+          <h3 class="text-lg font-bold text-[#0B1F3A]">Submitted Deepfake &amp; Cyber Complaints</h3>
+          <p class="text-xs text-[#6E6E73]">Real-time citizen complaints stored locally with reference numbers.</p>
+        </div>
+        <button type="button" id="btnCloseComplaintsList" class="w-8 h-8 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] font-bold">✕</button>
+      </div>
+      <div id="complaintsListBody" class="space-y-3 overflow-y-auto flex-1 pr-1 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- OFFICIAL GOVERNMENT OF INDIA RICH FOOTER WITH VERIFIED LINKS -->
+  <!-- ================================================================== -->
+  <footer class="bg-[#0B1F3A] text-white/85 mt-12">
+    <div class="tricolor-bar"></div>
+    <div class="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-xs">
+      <div class="space-y-3">
+        <h4 class="text-sm font-bold text-white">CivicPulse India</h4>
+        <p class="text-white/70 leading-relaxed">An official citizen-first Digital Public Infrastructure prototype aligned with MeitY synthetic media advisories and IT Rules 2021 to combat deepfakes, voice cloning, and public misinformation.</p>
+        <button type="button" id="btnFooterReport" class="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-semibold transition">File Deepfake Complaint</button>
+      </div>
+
+      <div class="space-y-2.5">
+        <h4 class="text-sm font-bold text-white">Official Reporting Portals</h4>
+        <ul class="space-y-2 text-white/75">
+          <li><a href="https://cybercrime.gov.in/" target="_blank" class="hover:text-white underline">National Cyber Crime Portal (I4C) ↗</a></li>
+          <li><a href="https://cybercrime.gov.in/cyber_suspect" target="_blank" class="hover:text-white underline">Report Deepfake / Suspect URL ↗</a></li>
+          <li><a href="https://sancharsaathi.gov.in/" target="_blank" class="hover:text-white underline">Sanchar Saathi (Chakshu Fraud Calls) ↗</a></li>
+          <li><a href="https://factcheck.pib.gov.in/" target="_blank" class="hover:text-white underline">PIB Fact Check Official Portal ↗</a></li>
+        </ul>
+      </div>
+
+      <div class="space-y-2.5">
+        <h4 class="text-sm font-bold text-white">Government &amp; Security Agencies</h4>
+        <ul class="space-y-2 text-white/75">
+          <li><a href="https://www.meity.gov.in/" target="_blank" class="hover:text-white underline">Ministry of Electronics &amp; IT (MeitY) ↗</a></li>
+          <li><a href="https://www.cert-in.org.in/" target="_blank" class="hover:text-white underline">CERT-In (Cyber Security Advisories) ↗</a></li>
+          <li><a href="https://www.digitalindia.gov.in/" target="_blank" class="hover:text-white underline">Digital India Programme ↗</a></li>
+          <li><a href="https://www.india.gov.in/" target="_blank" class="hover:text-white underline">National Portal of India ↗</a></li>
+        </ul>
+      </div>
+
+      <div class="space-y-2.5">
+        <h4 class="text-sm font-bold text-white">24×7 Citizen Helplines</h4>
+        <div class="p-3.5 rounded-2xl bg-white/10 border border-white/15 space-y-1.5">
+          <div><b>National Cyber Crime Helpline:</b> <a href="tel:1930" class="text-[#FF9933] font-bold">1930</a></div>
+          <div><b>PIB Fact Check WhatsApp:</b> +91 8799711259</div>
+          <div><b>PIB Fact Check Email:</b> factcheck@pib.gov.in</div>
+          <div><b>PIB Telegram:</b> <a href="https://t.me/PIB_FactCheck" target="_blank" class="underline text-cyan-300">t.me/PIB_FactCheck</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-white/10 py-4 px-6 text-center text-[11px] text-white/60">
+      © 2026 CivicPulse — Civic Pulse, Digital Governance &amp; Public Information • Zero-Retention Ephemeral Media Analysis • For emergencies dial 1930 or 112.
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
